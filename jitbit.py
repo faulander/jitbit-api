@@ -19,7 +19,7 @@ Ticket methods:
 Tickets                     get_tickets
 Ticket                      get_ticket_by_id
 Ticket (POST)               create_ticket
-UpdateTicket (POST)
+UpdateTicket (POST)         update_ticket
 SetCustomField (POST)
 Stats
 TicketCustomFields
@@ -248,5 +248,28 @@ class JitBitAPI(object):
                "assignedToCompanyId={data[assignedtocompany]}&"
                "assignedToDepartmentId={data[assignedtodepartmentid]}"
                )
+        response = self._make_request(url)
+        return json.loads(response.content)
+    def update_ticket(self, *args, **kwargs):
+        data[categoryId] = kwargs.get('categoryId', '')
+        data[priority] = kwargs.get('priority', '')
+        data[date] = kwargs.get('date', '')
+        data[userId] = kwargs.get('userId', '')
+        data[dueDate] = kwargs.get('dueDate', '')
+        data[assignedUserId] = kwargs.get('assignedUserId', '')
+        data[timeSpentInSeconds] = kwargs.get('timeSpentInSeconds', '')
+        data[statusId] = kwargs.get('statusId', '')
+        data[tags] = kwargs.get('tags', '')
+
+        url = ("UpdateTicket=categoryId={}&"
+               "priority={data[priority]}&"
+               "date={data[date]}&"
+               "userId={data[userId]}&"
+               "dueDate={data[dueDate]}&"
+               "assignedUserId={data[assignedUserId]}&"
+               "timeSpentInSeconds={data[timeSpentInSeconds]}&"
+               "statusId={data[statusId]}&"
+               "tags={data[tags]}"
+                )
         response = self._make_request(url)
         return json.loads(response.content)
