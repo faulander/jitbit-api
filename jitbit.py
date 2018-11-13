@@ -49,7 +49,7 @@ Articles                    get_articles
 Article                     get_article_by_id
 
 Asset methods:
-Assets (GET)
+Assets (GET)                get_assets
 Asset (GET)
 Asset (POST)
 UpdateAsset (POST)
@@ -95,7 +95,6 @@ class JitBitAPI(object):
         modes = ["all", "unanswered", "unclosed", "handledbyme"]
         assert date[mode] in modes, "mode must be one of %s" % modes
         assert offset > 0, "Offset count is 1-based"
-
 
         url = ("Tickets?mode={data[mode]}&"
                "categoryid={data[categoryid]}&"
@@ -238,4 +237,16 @@ class JitBitAPI(object):
         return json.loads(response.content)
     def get_article_by_id(self, article_id):
         response = self._make_request("Article/%s" % article_id)
+        return json.loads(response.content)
+    def get_assets(self, *args, **kwargs):
+        data[page] = kwargs.get('page', '')
+        data[assignedtouserid] = kwargs.get('assignedtouserid', '')
+        data[assignedtocompany] = kwargs.get('assignedtocompany', '')
+        data[assignedtodepartmentid] = kwargs.get('assignedtodepartmentid', '')
+        url = ("Assets?page={data[page]}&"
+               "assignedToUserId={data[assignedtouserid]}&"
+               "assignedToCompanyId={data[assignedtocompany]}&"
+               "assignedToDepartmentId={data[assignedtodepartmentid]}"
+               )
+        response = self._make_request(url)
         return json.loads(response.content)
