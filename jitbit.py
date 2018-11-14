@@ -21,13 +21,13 @@ Ticket                      get_ticket_by_id
 Ticket (POST)               create_ticket
 UpdateTicket (POST)         update_ticket
 SetCustomField (POST)       set_custom_field_by_id
-Stats
-TicketCustomFields
-Attachment
+Stats                       get_stats
+TicketCustomFields          get_ticket_custom_fields_by_id
+Attachment              
 AttachFile (POST)
-AddSubscriber (POST)
+AddSubscriber (POST)        add_subscriber_by_id
 Categories                  get_categories
-TechsForCategory
+TechsForCategory            get_techs_for_category
 CustomFieldsForCategory
 MergeTickets
 
@@ -55,8 +55,6 @@ Asset (POST)
 UpdateAsset (POST)
 AssignAssetToUser (POST)
 AddAssetToTicket (POST)
-
-
 """
 
 
@@ -70,6 +68,11 @@ class JitBitAPI(object):
             logger.error("Authorization failed for JitBit API")
             raise ValueError("Authorization failed, please check your credentials")
     def _make_request(self, method, data=None):
+        """
+        :param method:  string  API method listed above
+        :param data:    dict    Dictionary with POST-Data
+        :return:
+        """
         url = "%s/api/%s" % (self.api_url, method)
         if data:
             return requests.post(url, data=data, auth=self.authentication)
@@ -78,6 +81,36 @@ class JitBitAPI(object):
         response = self._make_request("Authorization")
         return response.status_code == 200
     def get_tickets(self, *args, **kwargs):
+        """
+        :param args:    ---
+        :param kwargs:
+                    mode	        string	            (optional) Allows you to choose, what tickets to show:
+                                    “all”(default)      – all tickets, including closed
+                                    “unanswered”        – shows new or updated by customer or for tech tickets
+                                    “unclosed”          – all active tickets
+                                    “handledbyme”       – shows tickets assigned to the user
+                    categoryid	    int	                (optional) Filter by a category
+                    sectionId	    int	                (optional) Filter by a section
+                    statusId	    int[]	            (optional) Filter by status(es), you can pass an array like
+                                                        this: ?statusId=1&statusId=2
+                    fromUserId	    int	                (optional) Filter by a ticket creator
+                    fromCompanyId	int	                (optional) Filter by a company
+                    handledByUserID	int	                (optional) Filter by a ticket performer
+                    tagName	        string	            (optional) Filter by ticket a tag
+                    dateFrom	    string	            (optional) Filter by creation date (date format should
+                                                        be YYYY-MM-DD, for example 2016-11-24)
+                    dateTo	        string	            (optional) Filter by creation date (date format should
+                                                        be YYYY-MM-DD, for example 2016-11-24)
+                    updatedFrom	    string	            (optional) Filter by “last updated” date (date format should
+                                                        be YYYY-MM-DD, for example 2016-11-24)
+                    updatedTo	    string	            (optional) Filter by “last updated” date (date format should
+                                                        be YYYY-MM-DD, for example 2016-11-24)
+                    count	        int	                (optional) How many tickets to return. Default: 10. Max: 100.
+                    offset	        int	                (optional) Use this to create paging. For example
+                                                        “offset=20&count=20” will return the next 20 tickets after
+                                                        the first 20. Defalut: 0.
+        :return: JSON with found tickets
+        """
         data[mode] = kwargs.get('mode', '')
         data[categoryid] = kwargs.get('categoryid', '')
         data[sectionid] = kwargs.get('sectionid', '')
@@ -112,6 +145,7 @@ class JitBitAPI(object):
                "offset={data[offset]}")
         response = self._make_request(url)
         return json.loads(response.content)
+
     def get_ticket_by_id(self, id):
         response = self._make_request("Ticket?id=%s" % id)
         if response.status_code == 200:
@@ -120,7 +154,23 @@ class JitBitAPI(object):
             except ValueError:
                 pass
         logger.warn('Failure for get_ticket, status: %d, content: %s', response.status_code, response.content)
+
     def create_ticket(self,categoryId,body,subject,priorityId,userId,tags):
+        """
+        :param categoryId:      int                     Category ID
+        :param body:            string                  Ticket body
+        :param subject:         string                  Ticket subject
+        :param priorityId:      int                     Ticket priority. Values:
+                                                            -1  – Low
+                                                            0   – Normal
+                                                            1   – High
+                                                            2   – Critical
+        :param userId:          int                     User-ID to create a ticket “on-behalf” of this user
+                                                        (requires technician permissions)
+        :param tags:            string                  A string of tags separated by comma.
+                                                        Example: tags=tag1,tag2,tag3
+        :return:                The created ticket ID
+        """
         assert all([categoryId, body, subject, priorityId]), "Must provide values for categoryId, body, subject and priorityId"
         data = {
             "categoryId": categoryId,
@@ -148,12 +198,26 @@ class JitBitAPI(object):
         return None
 
     def get_users(self, count=500, page=1, list_mode="all"):
+        """
+
+        :param count:       int                 (optional) number of users to return. Default: 500
+        :param page:        int                 (optional) used to get the next set of users after the first one.
+                                                So ?count=50 returns the first 50 users and ?count=50&page=2
+                                                returns the following 50 users.
+        :param list_mode:   string              (optional)
+                                                    “all” (default) - all users
+                                                    “techs”         - techs including admins
+                                                    “admins”        - admins only
+                                                    “regular”       - only regular users
+        :return:            JSON with Users
+        """
         assert page > 0, "Page count is 1-based"
         modes = ["all", "techs", "admins", "regular"]
         assert list_mode in modes, "list_mode must be one of %s" % modes
         url = "Users?count=%d&page=%d&listMode=%s" % (count, page, list_mode)
         response = self._make_request(url)
         return json.loads(response.content)
+
     def get_user_by_email(self, email):
         response = self._make_request("UserByEmail?email=%s" % email)
         if response.status_code == 200:
@@ -162,10 +226,20 @@ class JitBitAPI(object):
             except ValueError:
                 pass
         logger.warn('Failure for get_user_by_email, status: %d, content: %s', response.status_code, response.content)
-    def create_user(self, username, password, email, first_name, last_name, company, phone="", location="", send_welcome_email=False):
+
+    def create_user(self, username, password, email, first_name, last_name, company, department, phone="", location="", send_welcome_email=False):
         """
-        Add user per https://www.jitbit.com/helpdesk/helpdesk-api/#CreateUser
-        If successful, returns JitBit userId
+        :param username:            string  username, should not be taken by another user
+        :param password:            string  user’s password
+        :param email:               string  user’s email
+        :param first_name:          string  user's firstname
+        :param last_name:           string  user's lastname
+        :param company:             string  Set user’s company. If the company doesn’t exist, it will be created.
+        :param department:          string  Set user’s department. If the department doesn’t exist, it will be created.
+        :param phone:               string  user's phone
+        :param location:            string  user's location
+        :param send_welcome_email:  bool    Send a “welcome” to the user
+        :return:                    created userId
         """
         assert all([username, password, email]), "Must provide values for username, password and email"
         data = {
@@ -177,6 +251,7 @@ class JitBitAPI(object):
             "phone": phone,
             "location": location,
             "company": company,
+            "department": department
             "sendWelcomeEmail": send_welcome_email
         }
         response = self._make_request("CreateUser", data=data)
@@ -199,9 +274,19 @@ class JitBitAPI(object):
         return None
     def update_user_by_id(self, user_id, username, email, first_name, last_name, company, phone, location, password=None, notes="", department="", disabled=False):
         """
-        Update list of available parameters at https://www.jitbit.com/helpdesk/helpdesk-api/#UpdateUser
-        returns True/ False to indicate apparent success as JitBit's docs don't say they return any info
-        Everything except notes is a required field
+        :param user_id:         int     edited user’s ID
+        :param username:        string  username, should not be taken by another user
+        :param email:           string  user’s email
+        :param first_name:      string  firstname
+        :param last_name:       string  lastname
+        :param company:         string  company name
+        :param phone:           string  phone
+        :param location:        string  location
+        :param password:        string  password
+        :param notes:           string  optional administrator’s notes
+        :param department:      string  user’s department name
+        :param disabled:        bool    enable/disable the user
+        :return:                ???
         """
         data = {
             "userId": user_id,
@@ -226,18 +311,23 @@ class JitBitAPI(object):
         logger.warn("JitBit user update failed for id %s, response code was %d, %s", user_id, response.status_code,
                     response.content)
         return False
+
     def get_companies(self):
         response = self._make_request("Companies")
         return json.loads(response.content)
+
     def get_categories(self):
         response = self._make_request("categories")
         return json.loads(response.content)
+
     def get_articles(self):
         response = self._make_request("Articles")
         return json.loads(response.content)
+
     def get_article_by_id(self, article_id):
         response = self._make_request("Article/%s" % article_id)
         return json.loads(response.content)
+
     def get_assets(self, *args, **kwargs):
         """
         :param args:
@@ -321,3 +411,35 @@ class JitBitAPI(object):
         response = self._make_request("SetCustomField", data=data)
         return response.status_code
 
+    def get_stats(self):
+        """
+        :return: JSON
+        """
+        response = self._make_request("Stats")
+        return json.loads(response.content)
+
+    def get_ticket_custom_fields_by_id(self, id):
+        url = "TicketCustomFields?id=%s" % id
+        response = self._make_request(url)
+        return json.loads(response.content)
+
+    def add_subscriber_by_id(self, ticketId, userId):
+        """
+
+        :param ticketId:    int
+        :param userId:      int
+        :return:            200 if ok, errorcode otherwise?
+        """
+        assert all([ticketId, userId]), "Must provide values for ticketId and userId"
+        url = "AddSubscriber?id=%d&userId=%d" % (ticketId, userId)
+        response = self._make_request(url)
+        return response.status_code
+
+    def  get_techs_for_category(self, categoryId):
+        """
+        :param categoryId:  int
+        :return:            JSON with all possible assignees for a category
+        """
+        url = "TechsForCategory?id=%d" % categoryId
+        response = self._make_request(url)
+        return json.loads(response.content)
