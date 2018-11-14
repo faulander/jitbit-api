@@ -20,7 +20,7 @@ Tickets                     get_tickets
 Ticket                      get_ticket_by_id
 Ticket (POST)               create_ticket
 UpdateTicket (POST)         update_ticket
-SetCustomField (POST)
+SetCustomField (POST)       set_custom_field_by_id
 Stats
 TicketCustomFields
 Attachment
@@ -239,6 +239,15 @@ class JitBitAPI(object):
         response = self._make_request("Article/%s" % article_id)
         return json.loads(response.content)
     def get_assets(self, *args, **kwargs):
+        """
+        :param args:
+        :param kwargs:
+                        page	                optional	page number to return assets from. If you need assets from 51 to 101 - pass “2”, etc.
+                        assignedToUserId	    optional	filter by assigned user ID
+                        assignedToCompanyId	    optional	filter by assigned company ID
+                        assignedToDepartmentId	optional	filter by assigned company ID
+        :return: JSON
+        """
         data[page] = kwargs.get('page', '')
         data[assignedtouserid] = kwargs.get('assignedtouserid', '')
         data[assignedtocompany] = kwargs.get('assignedtocompany', '')
@@ -249,8 +258,29 @@ class JitBitAPI(object):
                "assignedToDepartmentId={data[assignedtodepartmentid]}"
                )
         response = self._make_request(url)
-        return json.loads(response.content)
+        if response.status_code == 200:
+            return json.loads(response.content)
+        return False
+
     def update_ticket(self, *args, **kwargs):
+        """
+        :param args: ---
+        :param kwargs:
+                        categoryId (optional)           int	Ticket category
+                        priority (optional)	            int	Ticket priority. Values:
+                            -1  – Low
+                            0   – Normal
+                            1   – High
+                            2   – Critical
+                        date (optional)	                DateTime	Ticket creation date
+                        userId (optional)	            int	        Ticket submitter’s user ID
+                        dueDate (optional)	            DateTime	Due date
+                        assignedUserId (optional)	    int	        Assigned technician’s ID. Set to 0 (zero) to remove the currently assigned user.
+                        timeSpentInSeconds (optional)	int	        Time spent on the ticket
+                        statusId (optional)	            int	        Ticket status ID. “Closed” id 3, “New” is 1, “In process” is 2. Check your custom status IDs in the admin area
+                        tags (optional)	                int	        A comma-separated list of tags to apply to the ticket. Like tags=tag1,tag2,tag3. All existing tags will be removed
+        :return: 200 OK if there were no errors. Returns an error message otherwise.
+        """
         data[categoryId] = kwargs.get('categoryId', '')
         data[priority] = kwargs.get('priority', '')
         data[date] = kwargs.get('date', '')
@@ -271,5 +301,23 @@ class JitBitAPI(object):
                "statusId={data[statusId]}&"
                "tags={data[tags]}"
                 )
-        response = self._make_request(url)
-        return json.loads(response.content)
+        if response.status_code == 200:
+            return json.loads(response.content)
+        return False
+
+    def set_custom_field_by_id(self, ticketId, fieldId, value):
+        """
+        :param ticketId: int
+        :param fieldId: int
+        :param value: Value as a string. For checkboxes pass true or false. For dropdowns pass the option ID. For dates pass date as a string in any format.
+        :return: 200 OK if there were no errors. Returns an error message otherwise.
+        """
+        assert all([ticketId, fieldId, value]), "Must provide values for ticketId, fieldId and value"
+
+        data[ticketId] = ticketId
+        data[fieldId] = fieldId
+        data[value] = value
+
+        response = self._make_request("SetCustomField", data=data)
+        return response.status_code
+
