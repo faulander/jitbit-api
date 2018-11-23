@@ -1,8 +1,8 @@
 from jitbit import JitBitAPI as Jitbit
 
-JITBIT_URL = 'http://helpdesk.mediamid.local/helpdesk/'
-JITBIT_USERNAME = 'hf'
-JITBIT_PASSWORD = 'E98C5E36E605'
+JITBIT_URL = ''
+JITBIT_USERNAME = ''
+JITBIT_PASSWORD = ''
 
 tickets = Jitbit(JITBIT_URL, JITBIT_USERNAME, JITBIT_PASSWORD)
 
