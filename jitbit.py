@@ -28,8 +28,8 @@ AttachFile (POST)
 AddSubscriber (POST)        add_subscriber_by_id
 Categories                  get_categories
 TechsForCategory            get_techs_for_category
-CustomFieldsForCategory
-MergeTickets
+CustomFieldsForCategory     get_custom_fields_for_category
+MergeTickets                merge_tickets
 
 Comment methods:
 Comment (POST)
@@ -67,6 +67,7 @@ class JitBitAPI(object):
         if not self.test_credentials():
             logger.error("Authorization failed for JitBit API")
             raise ValueError("Authorization failed, please check your credentials")
+
     def _make_request(self, method, data=None):
         """
         :param method:  string  API method listed above
@@ -77,9 +78,11 @@ class JitBitAPI(object):
         if data:
             return requests.post(url, data=data, auth=self.authentication)
         return requests.get(url, auth=self.authentication)
+
     def test_credentials(self):
         response = self._make_request("Authorization")
         return response.status_code == 200
+
     def get_tickets(self, *args, **kwargs):
         """
         :param args:    ---
@@ -111,38 +114,39 @@ class JitBitAPI(object):
                                                         the first 20. Defalut: 0.
         :return: JSON with found tickets
         """
-        data[mode] = kwargs.get('mode', '')
-        data[categoryid] = kwargs.get('categoryid', '')
-        data[sectionid] = kwargs.get('sectionid', '')
-        data[statusid] = kwargs.get('statusid', '')
-        data[fromuserid] = kwargs.get('fromuserid', '')
-        data[fromcompanyid] = kwargs.get('fromcompanyid', '')
-        data[handledbyuserid] = kwargs.get('handledbyuserid', '')
-        data[tagname] = kwargs.get('tagname', '')
-        data[datefrom] = kwargs.get('datefrom', '')
-        data[dateto] = kwargs.get('dateto', '')
-        data[updatedfrom] = kwargs.get('updatedfrom', '')
-        data[updatedto] = kwargs.get('updatedto', '')
-        data[count] = kwargs.get('count', '')
-        data[offset] = kwargs.get('offset', '')
+        data = {}
+        data["mode"] = kwargs.get('mode', 'all')
+        data["categoryid"] = kwargs.get('categoryId', '')
+        data["sectionid"] = kwargs.get('sectionId', '')
+        data["statusid"] = kwargs.get('statusId', '1')
+        data["fromuserid"] = kwargs.get('fromuserId', '')
+        data["fromcompanyid"] = kwargs.get('fromcompanyId', '')
+        data["handledbyuserid"] = kwargs.get('handledbyuserId', '')
+        data["tagname"] = kwargs.get('tagname', '')
+        data["datefrom"] = kwargs.get('datefrom', '')
+        data["dateto"] = kwargs.get('dateto', '')
+        data["updatedfrom"] = kwargs.get('updatedfrom', '')
+        data["updatedto"] = kwargs.get('updatedto', '')
+        data["count"] = kwargs.get('count', '')
+        data["offset"] = kwargs.get('offset', '1')
         modes = ["all", "unanswered", "unclosed", "handledbyme"]
-        assert date[mode] in modes, "mode must be one of %s" % modes
-        assert offset > 0, "Offset count is 1-based"
+        assert data["mode"] in modes, "mode must be one of %s" % modes
+        assert int(data['offset']) > 0, "Offset count is 1-based"
 
-        url = ("Tickets?mode={data[mode]}&"
-               "categoryid={data[categoryid]}&"
-               "sectionId={data[sectionid]}&"
-               "statusId={data[statusid]}&"
-               "fromUserId={data[fromuserid]}&"
-               "fromCompanyId={data[fromcompanyid]}&"
-               "handledByUserID={data[handledbyuserid]}&"
-               "tagName={data[tagname]}&"
-               "dateFrom={data[datefrom]}&"
-               "dateTo={data[dateto]}&"
-               "updatedFrom={data[updatedfrom]}&"
-               "updatedTo={data[updatedto]}&"
-               "count={data[count]}&"
-               "offset={data[offset]}")
+        url = (f"Tickets?mode={data['mode']}&"
+               f"categoryid={data['categoryid']}&"
+               f"sectionId={data['sectionid']}&"
+               f"statusId={data['statusid']}&"
+               f"fromUserId={data['fromuserid']}&"
+               f"fromCompanyId={data['fromcompanyid']}&"
+               f"handledByUserID={data['handledbyuserid']}&"
+               f"tagName={data['tagname']}&"
+               f"dateFrom={data['datefrom']}&"
+               f"dateTo={data['dateto']}&"
+               f"updatedFrom={data['updatedfrom']}&"
+               f"updatedTo={data['updatedto']}&"
+               f"count={data['count']}&"
+               f"offset={data['offset']}")
         response = self._make_request(url)
         return json.loads(response.content)
 
@@ -153,9 +157,9 @@ class JitBitAPI(object):
                 return json.loads(response.content)
             except ValueError:
                 pass
-        logger.warn('Failure for get_ticket, status: %d, content: %s', response.status_code, response.content)
+        logger.critical('Failure for get_ticket, status: %d, content: %s', response.status_code, response.content)
 
-    def create_ticket(self,categoryId,body,subject,priorityId,userId,tags):
+    def create_ticket(self, categoryId, body, subject, priorityId, userId, tags):
         """
         :param categoryId:      int                     Category ID
         :param body:            string                  Ticket body
@@ -179,9 +183,9 @@ class JitBitAPI(object):
             "priorityId": priorityId,
         }
         if userId:
-            data[userId] = userId
+            data["userId"] = userId
         if tags:
-            data[tags] = tags
+            data["tags"] = tags
         response = self._make_request("Ticket", data=data)
         if response.status_code == 200:
             # there's no good way to differentiate between success and failure with this API
@@ -194,7 +198,7 @@ class JitBitAPI(object):
             except ValueError:
                 pass
         else:
-            logger.warn("JitBit ticket creation failed, response was %s %d", response.content, response.status_code)
+            logger.critical("JitBit ticket creation failed, response was %s %d", response.content, response.status_code)
         return None
 
     def get_users(self, count=500, page=1, list_mode="all"):
@@ -225,7 +229,7 @@ class JitBitAPI(object):
                 return json.loads(response.content)
             except ValueError:
                 pass
-        logger.warn('Failure for get_user_by_email, status: %d, content: %s', response.status_code, response.content)
+        logger.critical('Failure for get_user_by_email, status: %d, content: %s', response.status_code, response.content)
 
     def create_user(self, username, password, email, first_name, last_name, company, department, phone="", location="", send_welcome_email=False):
         """
@@ -251,7 +255,7 @@ class JitBitAPI(object):
             "phone": phone,
             "location": location,
             "company": company,
-            "department": department
+            "department": department,
             "sendWelcomeEmail": send_welcome_email
         }
         response = self._make_request("CreateUser", data=data)
@@ -267,12 +271,13 @@ class JitBitAPI(object):
             except ValueError:
                 pass
         elif response.status_code == 500:
-            logger.warn("500 error at JitBit for %s %s, it may be the user already exists", first_name, last_name)
+            logger.critical("500 error at JitBit for %s %s, it may be the user already exists", first_name, last_name)
         else:
-            logger.warn("JitBit user creation failed for %s %s, response was %s %d", first_name, last_name,
+            logger.critical("JitBit user creation failed for %s %s, response was %s %d", first_name, last_name,
                         response.content, response.status_code)
         return None
-    def update_user_by_id(self, user_id, username, email, first_name, last_name, company, phone, location, password=None, notes="", department="", disabled=False):
+
+    def update_user_by_id(self, user_id, username="", email="", first_name="", last_name="", company="", phone="", location="", password=None, notes="", department="", disabled=False):
         """
         :param user_id:         int     edited user’s ID
         :param username:        string  username, should not be taken by another user
@@ -308,7 +313,7 @@ class JitBitAPI(object):
         if response.status_code == 200:
             logger.info("JitBit user updated for id %s, user %s, email %s", user_id, username, email)
             return True
-        logger.warn("JitBit user update failed for id %s, response code was %d, %s", user_id, response.status_code,
+        logger.critical("JitBit user update failed for id %s, response code was %d, %s", user_id, response.status_code,
                     response.content)
         return False
 
@@ -338,14 +343,15 @@ class JitBitAPI(object):
                         assignedToDepartmentId	optional	filter by assigned company ID
         :return: JSON
         """
-        data[page] = kwargs.get('page', '')
-        data[assignedtouserid] = kwargs.get('assignedtouserid', '')
-        data[assignedtocompany] = kwargs.get('assignedtocompany', '')
-        data[assignedtodepartmentid] = kwargs.get('assignedtodepartmentid', '')
-        url = ("Assets?page={data[page]}&"
-               "assignedToUserId={data[assignedtouserid]}&"
-               "assignedToCompanyId={data[assignedtocompany]}&"
-               "assignedToDepartmentId={data[assignedtodepartmentid]}"
+        data = {}
+        data["page"] = kwargs.get('page', '')
+        data["assignedtouserid"] = kwargs.get('assignedtouserid', '')
+        data["assignedtocompany"] = kwargs.get('assignedtocompany', '')
+        data["assignedtodepartmentid"] = kwargs.get('assignedtodepartmentid', '')
+        url = ("Assets?page={data['page']}&"
+               "assignedToUserId={data['assignedtouserid']}&"
+               "assignedToCompanyId={data['assignedtocompany']}&"
+               "assignedToDepartmentId={data['assignedtodepartmentid']}"
                )
         response = self._make_request(url)
         if response.status_code == 200:
@@ -371,25 +377,25 @@ class JitBitAPI(object):
                         tags (optional)	                int	        A comma-separated list of tags to apply to the ticket. Like tags=tag1,tag2,tag3. All existing tags will be removed
         :return: 200 OK if there were no errors. Returns an error message otherwise.
         """
-        data[categoryId] = kwargs.get('categoryId', '')
-        data[priority] = kwargs.get('priority', '')
-        data[date] = kwargs.get('date', '')
-        data[userId] = kwargs.get('userId', '')
-        data[dueDate] = kwargs.get('dueDate', '')
-        data[assignedUserId] = kwargs.get('assignedUserId', '')
-        data[timeSpentInSeconds] = kwargs.get('timeSpentInSeconds', '')
-        data[statusId] = kwargs.get('statusId', '')
-        data[tags] = kwargs.get('tags', '')
+        data["categoryId"] = kwargs.get('categoryId', '')
+        data["priority"] = kwargs.get('priority', '')
+        data["date"] = kwargs.get('date', '')
+        data["userId"] = kwargs.get('userId', '')
+        data["dueDate"] = kwargs.get('dueDate', '')
+        data["assignedUserId"] = kwargs.get('assignedUserId', '')
+        data["timeSpentInSeconds"] = kwargs.get('timeSpentInSeconds', '')
+        data["statusId"] = kwargs.get('statusId', '')
+        data["tags"] = kwargs.get('tags', '')
 
-        url = ("UpdateTicket=categoryId={}&"
-               "priority={data[priority]}&"
-               "date={data[date]}&"
-               "userId={data[userId]}&"
-               "dueDate={data[dueDate]}&"
-               "assignedUserId={data[assignedUserId]}&"
-               "timeSpentInSeconds={data[timeSpentInSeconds]}&"
-               "statusId={data[statusId]}&"
-               "tags={data[tags]}"
+        url = ("UpdateTicket=categoryId={data['categoryId']}&"
+               "priority={data['priority']}&"
+               "date={data['date']}&"
+               "userId={data['userId']}&"
+               "dueDate={data['dueDate']}&"
+               "assignedUserId={data['assignedUserId']}&"
+               "timeSpentInSeconds={data['timeSpentInSeconds']}&"
+               "statusId={data['statusId']}&"
+               "tags={data['tags']}"
                 )
         if response.status_code == 200:
             return json.loads(response.content)
@@ -404,9 +410,9 @@ class JitBitAPI(object):
         """
         assert all([ticketId, fieldId, value]), "Must provide values for ticketId, fieldId and value"
 
-        data[ticketId] = ticketId
-        data[fieldId] = fieldId
-        data[value] = value
+        data["ticketId"] = ticketId
+        data["fieldId"] = fieldId
+        data["value"] = value
 
         response = self._make_request("SetCustomField", data=data)
         return response.status_code
@@ -441,5 +447,25 @@ class JitBitAPI(object):
         :return:            JSON with all possible assignees for a category
         """
         url = "TechsForCategory?id=%d" % categoryId
+        response = self._make_request(url)
+        return json.loads(response.content)
+
+    def get_custom_fields_for_category(self, categoryId):
+        """
+        :param categoryId:  int
+        :return:            JSON with all possible assignees for a category
+        """
+        url = "CustomFieldsForCategory?id=%d" % categoryId
+        response = self._make_request(url)
+        return json.loads(response.content)
+
+    def merge_tickets(self, id, id2):
+        """
+        :param id:      int     first to be merged ticket ids
+        :param id2:     int     second to be merged ticket id
+        :return:        ???
+        """
+        assert all([id, id2]), "two tickets need to be provided"
+        url = "MergeTickets?id=%d&id2=%d" % (id,id2)
         response = self._make_request(url)
         return json.loads(response.content)
